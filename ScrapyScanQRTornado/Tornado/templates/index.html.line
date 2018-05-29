@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>终端机详情</title>
+</head>
+<body>
+    <script type="text/javascript" src="static/echarts.js"></script>
+    {% for key, value in physical_info.items() %}
+        {{key}} : {{value}}
+    	<br>
+    {% end %}
+    {% for key, value in current_info.items() %}
+        {{key}} : {{value}}
+	
+    	<br>
+    {% end %}
+    {% for key, value in weekly_info.items() %}
+        <!-- 'weekly_{{key}}' : {{value}} -->
+	<div id="container_weekly_{{key}}" style="height: 400%"></div>
+	<script type="text/javascript" src="static/echarts.js"></script>
+	<script type="text/javascript" src="static/china.js"></script>
+	<script type="text/javascript">
+            var dom_weekly_{{key}} = document.getElementById("container_weekly_{{key}}");
+            var myChart_weekly_{{key}} = echarts.init(dom_weekly_{{key}});
+            var app = {};
+            if ('myChart_weekly_{{key}}'.indexOf('percent') > -1) {
+                var yname = '%';
+            }
+            else {
+                var yname = '元';
+            }
+            option = null;
+            option = {
+                title: {
+                    text: 'weekly_{{key}}',
+                    left: 'center',
+                },
+                tooltip: {
+                    trigger: 'axis'
+                },
+                grid: {
+                    left: '10%',
+                    right: '10%',
+                    bottom: '10%',
+                    containLabel: true
+               },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: {{ weekly_date }},
+                },
+                yAxis: {
+                    name: yname,
+                    type: 'value',
+                },
+                series: [{
+                    data: {{value}},
+                    type: 'line',
+                    areaStyle: {},
+                }]
+            };
+            ;
+            if (option && typeof option === "object") {
+                myChart_weekly_{{key}}.setOption(option, true);
+            }
+        </script>
+    	<br>
+    {% end %}
+    {% for key, value in monthly_info.items() %}
+        'monthly_{{key}}' : {{value}}
+    	<br>
+    {% end %}
+</body>
+
+</html>

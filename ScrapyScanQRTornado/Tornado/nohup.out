@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "terminalinfo.py", line 118, in <module>
+    main()
+  File "terminalinfo.py", line 114, in main
+    app.listen(options.port)
+  File "/usr/local/lib/python2.7/site-packages/tornado/web.py", line 1986, in listen
+    server.listen(port, address)
+  File "/usr/local/lib/python2.7/site-packages/tornado/tcpserver.py", line 144, in listen
+    sockets = bind_sockets(port, address=address)
+  File "/usr/local/lib/python2.7/site-packages/tornado/netutil.py", line 163, in bind_sockets
+    sock.bind(sockaddr)
+  File "/usr/local/lib/python2.7/socket.py", line 228, in meth
+    return getattr(self._sock,name)(*args)
+socket.error: [Errno 98] Address already in use

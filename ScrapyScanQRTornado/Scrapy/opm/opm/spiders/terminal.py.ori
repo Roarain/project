@@ -1,0 +1,222 @@
+# -*- coding: utf-8 -*-
+import scrapy
+import sys
+from ..items import OpmItem
+import re
+import time
+from scrapy.http import FormRequest, Request
+
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
+
+class TerminalSpider(scrapy.Spider):
+    name = 'terminal'
+    allowed_domains = ['114.242.119.194']
+
+    def __init__(self, *args, **kwargs):
+        super(TerminalSpider, self).__init__(*args, **kwargs)
+
+        self.all = []
+        self.all_area = []
+        self.temp_hall = []
+        self.item = OpmItem()
+        # self.area_ids = []
+        # self.hall_ids = []
+
+        self.liaoning_dict = dict()
+        self.area_infos = []
+        self.hall_infos = dict()
+        self.form_data_login = {
+            'referer': 'index.php',
+            'login': 'jinf',
+            'cookietime': '2592000',
+            'password': 'jinf',
+            'submit': '马上登陆',
+        }
+
+        self.form_data_prepare_area_dict = {
+            'proId': '6',
+            'areaId': '00',
+            'hallId': '00',
+        }
+        '''
+        self.form_data_prepare_hall_dict = {
+            'proId': '6',
+            'areaId': '024',
+            'hallId': '00',
+        }
+
+        self.form_data_search_liaoning = {
+            'proId': '6',
+            'areaId': '024',
+            'hallId': '024001',
+        }
+        '''
+
+    def generate_ln_hallid(self, n):
+        if len(str(n)) == 1:
+            return '02400' + str(n)
+        elif len(str(n)) == 2:
+            return '0240' + str(n)
+        else:
+            return '024' + str(n)
+
+    def start_requests(self):
+        return [Request(url="http://114.242.119.194:9714/test.html", callback=self.post_login)]
+
+    def post_login(self, response):
+        return [FormRequest.from_response(
+            response,
+            headers=response.request.headers,
+            formdata=self.form_data_login,
+            callback=self.prepare_area_dict,
+        )]
+
+    def prepare_area_dict(self, response):
+        return [FormRequest(
+            url='http://114.242.119.194:9714/infoplatform/hall/loadPrePareProData.action',
+            headers=response.request.headers,
+            formdata=self.form_data_prepare_area_dict,
+            callback=self.search_area,
+        )]
+
+    def search_area(self, response):
+        area_infos_temp = response.xpath("//select[@id='areaId']/option[@value!='00']").extract()
+        print 'len(area_infos_temp): ', len(area_infos_temp)
+        for area_info_temp in area_infos_temp:
+            area_info_match_group = re.search('value="(.*)".*>(.*)<', area_info_temp.encode('utf-8'))
+            area_name = area_info_match_group.group(2)
+            area_id = area_info_match_group.group(1)
+            # self.area_infos[area_id] = area_name
+            hall_id = area_id + "001"
+
+            form_data_hall_dict = dict(
+                areaId=area_id,
+                hallId=hall_id,
+                proId="6",
+            )
+
+            self.temp_hall.append(form_data_hall_dict)
+
+
+            '''
+            # url = 'http://114.242.119.194:9714/infoplatform/hall/loadPrePareProData.action?geogId=024'
+
+            url = 'http://114.242.119.194:9714/infoplatform/hall/loadPrePareProData.action?geogId=' + str(area_id)
+            return [Request(
+                url=url,
+                headers=response.request.headers,
+                method='GET',
+                callback=self.search_hall_dict,
+            )]
+            '''
+
+            '''
+            yield FormRequest(
+                url='http://114.242.119.194:9714/infoplatform/hall/loadPrePareProData.action',
+                headers=response.request.headers,
+                formdata=form_data_hall_dict,
+                callback=self.search_hall,
+            )
+            '''
+        if self.temp_hall:
+            for i in range(len(self.temp_hall)):
+                print 'circle times: ', i
+                form_data_temp_hall = self.temp_hall[i]
+                yield FormRequest(
+                    url='http://114.242.119.194:9714/infoplatform/hall/loadPrePareProData.action',
+                    formdata=form_data_temp_hall,
+                    callback=self.search_hall,
+                )
+
+    # def get_all_hall(self, temp_hall):
+    #     temp_hall = self.temp_hall
+    #     while self.temp_hall:
+    #         form_data_temp_hall = self.temp_hall.pop()
+    #         yield FormRequest(
+    #             url='http://114.242.119.194:9714/infoplatform/hall/loadPrePareProData.action',
+    #             formdata=form_data_temp_hall,
+    #             callback=self.search_hall,
+    #         )
+
+    def search_hall(self, response):
+        # print 'len(self.temp_hall): ', len(self.temp_hall)
+        # print 'self.temp_hall: ', self.temp_hall
+        pro_id = 6
+        area_name = response.xpath("//select[@id='areaId']/option[@selected='selected']/text()").extract()
+        if area_name:
+            area_name = area_name[0].encode('utf-8')
+        hall_infos_temp = response.xpath("//select[@id='hallId']/option[@value!='00']").extract()
+        for hall_info_temp in hall_infos_temp:
+            hall_info_match_group = re.search('value="(.*)".*>(.*)<', hall_info_temp.encode('utf-8'))
+            hall_name = hall_info_match_group.group(2)
+            hall_id = hall_info_match_group.group(1)
+            self.hall_infos[hall_id] = hall_name
+            area_info = dict(
+                pro_id=pro_id,
+                area_name=area_name,
+                hall_id=hall_id,
+                hall_name=hall_name,
+            )
+            self.area_infos.append(area_info)
+
+            # self.hall_ids.append(hall_id)
+            # self.form_data_prepare_hall_dict['hallId'] = hall_id
+
+            # self.all_infos.append(self.form_data_prepare_hall_dict)
+            # print self.all_infos
+            # return self.all_infos
+
+            # return FormRequest(
+            #     url='http://114.242.119.194:9714/infoplatform/hall/loadPrePareProData.action',
+            #     headers=response.request.headers,
+            #     formdata=self.form_data_prepare_hall_dict,
+            #     callback=self.parse,
+            # )
+
+        print 'len.self.area_infos: ', len(self.area_infos)
+        print 'len.self.hall_infos: ', len(self.hall_infos)
+
+    '''
+    def search_ln(self, response):
+        # print response.body.decode("latin-1").encode("utf-8")
+        # print 'search ln func is over'
+        return FormRequest(
+            url='http://114.242.119.194:9714/infoplatform/hall/loadPrePareProData.action',
+            headers=response.request.headers,
+            formdata=self.form_data_search_liaoning,
+            callback=self.parse,
+        )
+
+    def parse(self, response):
+        # print response.text.decode("latin-1").encode("utf-8")
+        # print 'parse funce is over'
+        node_list = response.xpath("//tr[@bgcolor='#FFFFFF']")
+        if not node_list:
+            return
+        for node in node_list:
+            item = OpmItem()
+
+            terminal_id = node.xpath("./td[2]/strong/text()").extract()
+            terminal_sale = node.xpath("./td[3]/text()").extract()
+            terminal_sale_percent = node.xpath("./td[3]/text()").extract()
+            terminal_winning = node.xpath("./td[4]/text()").extract()
+            terminal_redemption_percent = node.xpath("./td[5]/text()").extract()
+            terminal_single_bet = node.xpath("./td[6]/text()").extract()
+
+            self.item['terminal_id'] = terminal_id[0].encode('utf-8').replace('\t', '').replace(' ', '')
+            self.item['terminal_sale'] = terminal_sale[0].encode('utf-8').replace('\t', '').replace(' ', '')
+            self.item['terminal_sale_percent'] = terminal_sale_percent[0].encode('utf-8').replace('\t', '').replace(' ', '')
+            self.item['terminal_winning'] = terminal_winning[0].encode('utf-8').replace('\t', '').replace(' ', '')
+            self.item['terminal_redemption_percent'] = terminal_redemption_percent[0].encode('utf-8').replace('\t', '').replace(' ', '')
+            self.item['terminal_single_bet'] = terminal_single_bet[0].encode('utf-8').replace('\t', '').replace(' ', '')
+
+            # hallnames = response.xpath("//select[@id='hallId']/option[@value!='00']").extract()[1].encode('utf-8')
+            hallnames = response.xpath("//select[@id='hallId']/option[@value!='00']/text()").extract()
+            print 'hallnames length: ', len(hallnames)
+            for hallname in hallnames:
+                print 'hallname: ', hallname.encode('utf-8')
+
+            yield self.item
+    '''
